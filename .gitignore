@@ -38,3 +38,5 @@ coverage.xml
 backend/app/uploads/
 
 temp/
+
+test.json

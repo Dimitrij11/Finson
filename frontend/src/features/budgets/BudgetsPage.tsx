@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { FormEvent } from "react"
-import { Trash2 } from "lucide-react"
+import { Trash2, Pencil, X } from "lucide-react"
+import { createPortal } from "react-dom"
 
-import { useBudgets, useCreateBudget, useDeleteBudget } from "./hooks"
+import { useBudgets, useCreateBudget, useDeleteBudget, useUpdateBudget } from "./hooks"
 import { useLanguage } from "../../i18n"
 import { useAuth } from "../../hooks/useAuth"
+import type { BudgetGoal } from "../../api/types"
 
 export const BudgetsPage = () => {
   const { data, isLoading, isError } = useBudgets()
