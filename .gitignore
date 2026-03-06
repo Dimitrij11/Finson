@@ -33,3 +33,6 @@ coverage.xml
 # Misc
 *.sqlite3
 *.db
+
+# Ignore profile uploads
+backend/app/uploads/

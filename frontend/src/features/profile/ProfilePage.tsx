@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import type { FormEvent } from "react"
-import { User, Lock, Mail, Calendar, Wallet, AlertTriangle, RefreshCw } from "lucide-react"
+import { User, Lock, Mail, Calendar, Wallet, AlertTriangle, RefreshCw, Camera } from "lucide-react"
 
 import { useAuth } from "../../hooks/useAuth"
 import { apiClient } from "../../api/client"
@@ -34,6 +34,64 @@ export const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [resendingEmail, setResendingEmail] = useState(false)
   const [currencyLoading, setCurrencyLoading] = useState(false)
+  const [isEmailBlurred, setIsEmailBlurred] = useState(true)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Limit to 2MB to match backend
+    if (file.size > 2 * 1024 * 1024) {
+      setError(language === "mk" ? "Сликата е преголема. Максимум 2MB." : "Image too large. Maximum 2MB.")
+      return
+    }
+
+    setIsUploadingPhoto(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string
+          await apiClient.post(
+            "/users/me/profile-picture",
+            { image_data: base64String },
+            { token: token ?? undefined }
+          )
+          if (refreshUser) {
+            await refreshUser()
+          }
+          setSuccess(language === "mk" ? "Профилната слика е ажурирана" : "Profile picture updated")
+        } catch (err) {
+          setError(err instanceof Error ? err.message : t("saveFailed"))
+        } finally {
+          setIsUploadingPhoto(false)
+          if (fileInputRef.current) {
+            fileInputRef.current.value = ""
+          }
+        }
+      }
+      reader.onerror = () => {
+        setError(language === "mk" ? "Грешка при читање на сликата" : "Error reading image")
+        setIsUploadingPhoto(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("saveFailed"))
+      setIsUploadingPhoto(false)
+    }
+  }
 
   const handlePasswordChange = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -171,18 +229,78 @@ export const ProfilePage = () => {
       <div className="profile-grid">
         {/* User Info Card */}
         <div className="panel profile-card">
-          <div className="profile-avatar">
-            <User size={48} />
+          <div 
+            className="profile-avatar" 
+            onClick={!isUploadingPhoto ? handleAvatarClick : undefined}
+            style={{ cursor: isUploadingPhoto ? "wait" : "pointer", position: "relative", overflow: "hidden" }}
+            title={language === "mk" ? "Промени профилна слика" : "Change profile picture"}
+          >
+            {user.profile_picture ? (
+              <img 
+                src={user.profile_picture} 
+                alt="Profile" 
+                style={{ width: "100%", height: "100%", objectFit: "cover", opacity: isUploadingPhoto ? 0.5 : 1 }} 
+              />
+            ) : (
+              <User size={48} style={{ opacity: isUploadingPhoto ? 0.5 : 1 }} />
+            )}
+            <div 
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: "rgba(0,0,0,0.5)",
+                display: "flex",
+                justifyContent: "center",
+                padding: "4px 0",
+                color: "white"
+              }}
+            >
+              <Camera size={16} />
+            </div>
           </div>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            accept="image/jpeg,image/png,image/gif"
+            style={{ display: "none" }}
+          />
           <h2 className="profile-name">{user.full_name || (language === "mk" ? "Корисник" : "User")}</h2>
-          <p className="profile-email">{user.email}</p>
+          <p 
+            className="profile-email"
+            onClick={() => setIsEmailBlurred(false)}
+            style={{ 
+              cursor: isEmailBlurred ? "pointer" : "default", 
+              filter: isEmailBlurred ? "blur(5px)" : "none",
+              transition: "filter 0.3s ease",
+              userSelect: isEmailBlurred ? "none" : "auto"
+            }}
+            title={isEmailBlurred ? (language === "mk" ? "Кликни за да го видиш емаилот" : "Click to reveal email") : ""}
+          >
+            {user.email}
+          </p>
 
           <div className="profile-details">
             <div className="profile-detail-item">
               <Mail size={18} />
               <div>
                 <span className="detail-label">{t("email")}</span>
-                <span className="detail-value">{user.email}</span>
+                <span 
+                  className="detail-value"
+                  onClick={() => setIsEmailBlurred(false)}
+                  style={{ 
+                    cursor: isEmailBlurred ? "pointer" : "default", 
+                    filter: isEmailBlurred ? "blur(5px)" : "none",
+                    transition: "filter 0.3s ease",
+                    display: "inline-block",
+                    userSelect: isEmailBlurred ? "none" : "auto"
+                  }}
+                  title={isEmailBlurred ? (language === "mk" ? "Кликни за да го видиш емаилот" : "Click to reveal email") : ""}
+                >
+                  {user.email}
+                </span>
               </div>
             </div>
             <div className="profile-detail-item">

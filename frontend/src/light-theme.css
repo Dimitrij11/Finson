@@ -228,6 +228,7 @@
 
 /* Topbar */
 :root[data-theme="light"] .topbar {
+  background-color: rgba(248, 250, 252, 0.85);
   border-bottom-color: rgba(15, 23, 42, 0.1);
 }
 

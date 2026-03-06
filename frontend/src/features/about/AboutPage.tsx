@@ -122,7 +122,7 @@ export const AboutPage = () => {
       {/* Chart Panel */}
       <div className="panel">
         <h3 className="panel__title">
-          🚀 {language === "mk" ? "Нашата ентузијазам за проектот" : "Our Enthusiasm for the Project"}
+          🚀 {language === "mk" ? "Нашиот ентузијазам за проектот" : "Our Enthusiasm for the Project"}
         </h3>
         <p className="panel__subtitle" style={{ marginBottom: "2rem" }}>
           {language === "mk" ? "Како што расте проектот, така расте и нашата мотивација!" : "As the project grows, so does our motivation!"}
