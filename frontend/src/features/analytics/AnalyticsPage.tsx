@@ -25,18 +25,18 @@ const COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
 
 // Investment Calculator Component
 const InvestmentCalculator = () => {
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
   const { user } = useAuth()
   const userCurrency = user?.currency || "EUR"
 
   const investmentTypes = [
-    { id: "stocks", name: language === "mk" ? "Акции (S&P 500)" : "Stocks (S&P 500)", avgReturn: 10 },
-    { id: "bonds", name: language === "mk" ? "Обврзници" : "Bonds", avgReturn: 5 },
-    { id: "etf", name: language === "mk" ? "ETF фондови" : "ETF Funds", avgReturn: 8 },
-    { id: "crypto", name: language === "mk" ? "Криптовалути" : "Cryptocurrency", avgReturn: 15 },
-    { id: "savings", name: language === "mk" ? "Штедна сметка" : "Savings Account", avgReturn: 2 },
-    { id: "realestate", name: language === "mk" ? "Недвижности (REITs)" : "Real Estate (REITs)", avgReturn: 7 },
-    { id: "custom", name: language === "mk" ? "Прилагодено" : "Custom", avgReturn: 7 },
+    { id: "stocks", name: t("stocksSP500"), avgReturn: 10 },
+    { id: "bonds", name: t("bonds"), avgReturn: 5 },
+    { id: "etf", name: t("etfFunds"), avgReturn: 8 },
+    { id: "crypto", name: t("cryptocurrency"), avgReturn: 15 },
+    { id: "savings", name: t("savingsAccount"), avgReturn: 2 },
+    { id: "realestate", name: t("realEstateREITs"), avgReturn: 7 },
+    { id: "custom", name: t("custom"), avgReturn: 7 },
   ]
 
   const [selectedType, setSelectedType] = useState("stocks")
@@ -69,7 +69,7 @@ const InvestmentCalculator = () => {
     for (let year = 0; year <= years; year++) {
       if (year === 0) {
         projections.push({
-          year: language === "mk" ? `Година ${year}` : `Year ${year}`,
+          year: t("yearLabel", { year }),
           balance: initial,
           contributions: initial,
           earnings: 0,
@@ -80,7 +80,7 @@ const InvestmentCalculator = () => {
         }
         const totalContributions = initial + monthly * 12 * year
         projections.push({
-          year: language === "mk" ? `Година ${year}` : `Year ${year}`,
+          year: t("yearLabel", { year }),
           balance: Math.round(balance),
           contributions: Math.round(totalContributions),
           earnings: Math.round(balance - totalContributions),
@@ -105,17 +105,15 @@ const InvestmentCalculator = () => {
   return (
     <div className="panel investment-calculator">
       <h3 className="panel__title">
-        {language === "mk" ? "📈 Калкулатор за инвестиции" : "📈 Investment Calculator"}
+        📈 {t("investmentCalculator")}
       </h3>
       <p className="panel__subtitle">
-        {language === "mk"
-          ? "Пресметај го потенцијалниот раст ако инвестираш во различни инструменти"
-          : "Calculate potential growth if you invest in different instruments"}
+        {t("calculateGrowth")}
       </p>
 
       {/* Investment Type Selector */}
       <div className="input-group" style={{ marginBottom: "1rem" }}>
-        <label>{language === "mk" ? "Тип на инвестиција" : "Investment Type"}</label>
+        <label>{t("investmentType")}</label>
         <select
           className="input"
           value={selectedType}
