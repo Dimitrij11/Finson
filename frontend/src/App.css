@@ -518,10 +518,6 @@
   margin-bottom: 1rem;
 }
 
-.market-search {
-  max-width: 280px;
-}
-
 .market-up {
   color: var(--positive);
 }
