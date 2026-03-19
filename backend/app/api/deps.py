@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.core.security import decode_access_token
+from app.core.security import SCOPE_FULL_ACCESS, decode_access_token
 from app.models import User
 from app.schemas import TokenPayload
 from app.services import user_service
@@ -46,3 +46,23 @@ def get_current_user(
     if not user:
         raise _credentials_exception()
     return user
+
+
+def get_token_payload(token: str = Depends(oauth2_scheme)) -> TokenPayload:
+    try:
+        payload = decode_access_token(token)
+        return TokenPayload(**payload)
+    except JWTError as exc:  # pragma: no cover
+        raise _credentials_exception() from exc
+
+
+def get_current_full_access_user(
+    current_user: User = Depends(get_current_user),
+    token_payload: TokenPayload = Depends(get_token_payload),
+) -> User:
+    if SCOPE_FULL_ACCESS not in token_payload.scopes:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email verification required for this action",
+        )
+    return current_user

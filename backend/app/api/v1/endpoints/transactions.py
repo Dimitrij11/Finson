@@ -12,7 +12,6 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
 @router.get("", response_model=list[TransactionRead])
-@router.get("", response_model=list[TransactionRead])
 def list_my_transactions(
     *,
     db: Session = Depends(deps.get_db),
@@ -40,7 +39,7 @@ def list_my_transactions(
 def create_transaction(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     tx_in: TransactionCreate,
 ) -> TransactionRead:
     return transaction_service.create_transaction(db, current_user.id, tx_in)
@@ -57,7 +56,7 @@ def get_transaction(
 def update_transaction(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     transaction_id: int,
     tx_in: TransactionUpdate,
 ) -> TransactionRead:
@@ -66,7 +65,7 @@ def update_transaction(
 
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(
-    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_user), transaction_id: int
+    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_full_access_user), transaction_id: int
 ) -> None:
     transaction_service.delete_transaction(db, current_user.id, transaction_id)
 

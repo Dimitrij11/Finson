@@ -1,6 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models import User
 from app.schemas.user import UserCreate, UserUpdate
@@ -35,6 +38,37 @@ def authenticate(db: Session, email: str, password: str) -> User | None:
         return None
     if not verify_password(password, user.hashed_password):
         return None
+    return user
+
+
+def is_user_locked(user: User) -> bool:
+    if user.locked_until is None:
+        return False
+    return user.locked_until > datetime.now(timezone.utc)
+
+
+def register_failed_login(db: Session, user: User) -> User:
+    now = datetime.now(timezone.utc)
+    user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+    user.last_failed_login_at = now
+    if user.failed_login_attempts >= settings.AUTH_MAX_FAILED_ATTEMPTS:
+        user.locked_until = now + \
+            timedelta(minutes=settings.AUTH_LOCKOUT_MINUTES)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def reset_login_failures(db: Session, user: User) -> User:
+    if not user.failed_login_attempts and user.locked_until is None:
+        return user
+    user.failed_login_attempts = 0
+    user.last_failed_login_at = None
+    user.locked_until = None
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 

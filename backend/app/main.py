@@ -4,10 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app import models  # keep this import for Alembic metadata discovery
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.database import Base, engine
-from app import models  # keep this import
 
 # Ensure uploads directory exists
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
@@ -23,14 +22,10 @@ def get_application() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.BACKEND_CORS_ORIGINS,
-        allow_credentials=True,
+        allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    @app.on_event("startup")
-    def startup_event():
-        Base.metadata.create_all(bind=engine)
 
     @app.get("/health")
     def health():

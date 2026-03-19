@@ -20,7 +20,7 @@ def list_budgets(
 def create_budget(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     budget_in: BudgetCreate,
 ) -> BudgetRead:
     return budget_service.create_budget(db, current_user.id, budget_in)
@@ -30,7 +30,7 @@ def create_budget(
 def update_budget(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     budget_id: int,
     budget_in: BudgetUpdate,
 ) -> BudgetRead:
@@ -39,6 +39,6 @@ def update_budget(
 
 @router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_budget(
-    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_user), budget_id: int
+    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_full_access_user), budget_id: int
 ) -> None:
     budget_service.delete_budget(db, current_user.id, budget_id)

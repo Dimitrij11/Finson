@@ -20,7 +20,7 @@ def list_savings_goals(
 def create_savings_goal(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     goal_in: SavingsGoalCreate,
 ) -> SavingsGoalRead:
     return savings_goal_service.create_savings_goal(db, current_user.id, goal_in)
@@ -30,7 +30,7 @@ def create_savings_goal(
 def update_savings_goal(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     goal_id: int,
     goal_in: SavingsGoalUpdate,
 ) -> SavingsGoalRead:
@@ -39,6 +39,6 @@ def update_savings_goal(
 
 @router.delete("/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_savings_goal(
-    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_user), goal_id: int
+    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_full_access_user), goal_id: int
 ) -> None:
     savings_goal_service.delete_savings_goal(db, current_user.id, goal_id)

@@ -39,7 +39,7 @@ def update_current_user(
     *,
     db: Session = Depends(deps.get_db),
     user_in: UserUpdate,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
 ) -> UserRead:
     updated = user_service.update(db, current_user, user_in)
     return updated
@@ -50,7 +50,7 @@ def upload_profile_picture(
     *,
     db: Session = Depends(deps.get_db),
     upload: ProfilePictureUpload,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
 ) -> UserRead:
     """Upload a profile picture (base64 encoded)."""
     try:
@@ -115,7 +115,7 @@ def change_password(
     *,
     db: Session = Depends(deps.get_db),
     password_data: PasswordChange,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
 ):
     """Change the current user's password."""
     success = user_service.change_password(
@@ -154,7 +154,7 @@ def change_currency(
     *,
     db: Session = Depends(deps.get_db),
     request: CurrencyChangeRequest,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
 ):
     """
     Change user's currency and optionally convert all transaction and budget values.

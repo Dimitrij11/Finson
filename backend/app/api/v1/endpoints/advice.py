@@ -39,7 +39,7 @@ def get_conversation(
 def create_advice(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     advice_in: AdviceRequest,
 ) -> AdviceRead:
     return advice_service.generate_advice(db, current_user, advice_in)
@@ -49,7 +49,7 @@ def create_advice(
 def delete_conversation(
     *,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_full_access_user),
     conversation_id: str
 ) -> None:
     """Delete a specific conversation."""
@@ -58,7 +58,7 @@ def delete_conversation(
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 def clear_advice_history(
-    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_user)
+    *, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_full_access_user)
 ) -> None:
     """Clear all advice history for the current user."""
     advice_service.clear_advice(db, current_user.id)
