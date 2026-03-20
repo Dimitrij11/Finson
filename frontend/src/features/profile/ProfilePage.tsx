@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import type { FormEvent } from "react"
-import { User, Lock, Mail, Calendar, Wallet, AlertTriangle, RefreshCw, Camera, ChevronDown, Search } from "lucide-react"
+import { User, Lock, Mail, Calendar, Wallet, AlertTriangle, RefreshCw, Camera, ChevronDown, Search, Check } from "lucide-react"
 
 import { useAuth } from "../../hooks/useAuth"
 import { apiClient } from "../../api/client"
@@ -22,6 +22,35 @@ const SUPPORTED_CURRENCIES = [
 ]
 
 const PREDEFINED_CURRENCIES = ["EUR", "USD", "MKD"]
+const POPULAR_QUICK_SELECT = ["EUR", "USD", "MKD", "GBP", "CHF"]
+
+const CURRENCY_FLAGS: Record<string, string> = {
+  EUR: "🇪🇺",
+  USD: "🇺🇸",
+  MKD: "🇲🇰",
+  GBP: "🇬🇧",
+  CHF: "🇨🇭",
+  JPY: "🇯🇵",
+  CAD: "🇨🇦",
+  AUD: "🇦🇺",
+  CNY: "🇨🇳",
+  SEK: "🇸🇪",
+  NOK: "🇳🇴",
+  DKK: "🇩🇰",
+  PLN: "🇵🇱",
+  CZK: "🇨🇿",
+  HUF: "🇭🇺",
+  RON: "🇷🇴",
+  BGN: "🇧🇬",
+  HRK: "🇭🇷",
+  TRY: "🇹🇷",
+  RUB: "🇷🇺",
+  BRL: "🇧🇷",
+  MXN: "🇲🇽",
+  ARS: "🇦🇷",
+  ZAR: "🇿🇦",
+  INR: "🇮🇳"
+}
 
 const getCurrencyName = (code: string): string => {
   const names: Record<string, string> = {
@@ -77,7 +106,7 @@ export const ProfilePage = () => {
   }, [])
 
   const filteredCurrencies = SUPPORTED_CURRENCIES.filter(curr =>
-    curr.toLowerCase().includes(currencySearch.toLowerCase()) && !PREDEFINED_CURRENCIES.includes(curr)
+    curr.toLowerCase().includes(currencySearch.toLowerCase())
   )
   const [passwordForm, setPasswordForm] = useState({
     current_password: "",
@@ -422,7 +451,9 @@ export const ProfilePage = () => {
                     onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
                   >
                     <div className="currency-display">
-                      <Wallet size={16} className="currency-icon" />
+                      <div className="currency-flag-circle">
+                         {CURRENCY_FLAGS[selectedCurrency] || "🏳️"}
+                      </div>
                       <span className="currency-code">{selectedCurrency}</span>
                     </div>
                     <ChevronDown size={16} className={`dropdown-arrow ${showCurrencyDropdown ? 'rotated' : ''}`} />
@@ -430,6 +461,23 @@ export const ProfilePage = () => {
                   
                   {showCurrencyDropdown && (
                     <div className="currency-dropdown-modern">
+                      <div className="currency-quick-row">
+                        {POPULAR_QUICK_SELECT.map(curr => (
+                           <div 
+                              key={curr}
+                              className={`currency-quick-item ${selectedCurrency === curr ? 'active' : ''}`}
+                              onClick={() => {
+                                setSelectedCurrency(curr)
+                                setCurrencySearch(curr)
+                                setShowCurrencyDropdown(false)
+                              }}
+                              title={t(getCurrencyName(curr))}
+                           >
+                              {CURRENCY_FLAGS[curr]}
+                           </div>
+                        ))}
+                      </div>
+
                       <div className="currency-search-container">
                         <Search size={14} className="search-icon" />
                         <input
@@ -440,10 +488,7 @@ export const ProfilePage = () => {
                           onChange={(e) => {
                             const value = e.target.value.toUpperCase()
                             setCurrencySearch(value)
-                            // If exact match, select it
-                            if (SUPPORTED_CURRENCIES.includes(value)) {
-                              setSelectedCurrency(value)
-                            }
+                            // If exact match, select it (optional, maybe distracting)
                           }}
                           onClick={(e) => e.stopPropagation()}
                           autoFocus
@@ -451,24 +496,6 @@ export const ProfilePage = () => {
                       </div>
                       
                       <div className="currency-options">
-                        <div className="currency-section">
-                          <div className="currency-section-title">{t("popularCurrencies")}</div>
-                          {PREDEFINED_CURRENCIES.map((curr) => (
-                            <div
-                              key={curr}
-                              className={`currency-option-modern ${selectedCurrency === curr ? 'selected' : ''}`}
-                              onClick={() => {
-                                setSelectedCurrency(curr)
-                                setCurrencySearch(curr)
-                                setShowCurrencyDropdown(false)
-                              }}
-                            >
-                              <Wallet size={14} className="currency-option-icon" />
-                              <span className="currency-option-code">{curr}</span>
-                              <span className="currency-option-name">{t(getCurrencyName(curr))}</span>
-                            </div>
-                          ))}
-                        </div>
                         
                         {filteredCurrencies.length > 0 && currencySearch && (
                           <div className="currency-section">
@@ -483,9 +510,16 @@ export const ProfilePage = () => {
                                   setShowCurrencyDropdown(false)
                                 }}
                               >
-                                <Wallet size={14} className="currency-option-icon" />
-                                <span className="currency-option-code">{curr}</span>
-                                <span className="currency-option-name">{t(getCurrencyName(curr))}</span>
+                                <span className="currency-option-flag">{CURRENCY_FLAGS[curr] || "🏳️"}</span>
+                                <div className="currency-option-details">
+                                  <span className="currency-option-code">{curr}</span>
+                                  <span className="currency-option-name">{t(getCurrencyName(curr))}</span>
+                                </div>
+                                {selectedCurrency === curr && (
+                                  <span className="currency-check">
+                                     <Check size={16} />
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
