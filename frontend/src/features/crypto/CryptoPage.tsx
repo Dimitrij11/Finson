@@ -33,6 +33,13 @@ interface CryptoListResponse {
   quotes: CryptoRow[]
 }
 
+interface CryptoSearchResult {
+  symbol: string
+  name: string
+  exchange: string
+  quoteType: string
+}
+
 interface ChartPoint { t: number; price: number }
 
 type ChartRange = "1d" | "5d" | "1mo" | "3mo" | "6mo" | "1y" | "5y"
@@ -173,7 +180,8 @@ export const CryptoPage = () => {
   const [filter, setFilter] = useState<CryptoFilter>("all")
 
   const [query, setQuery] = useState("")
-  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<CryptoSearchResult[] | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [selectedCoin, setSelectedCoin] = useState<CryptoRow | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
@@ -202,45 +210,77 @@ export const CryptoPage = () => {
     [language, token],
   )
 
-  const searchQuotes = useCallback(async (q: string) => {
-      if (!q.trim()) return
-
-      if (abortRef.current) abortRef.current.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      setLoading(true)
-      setIsSearching(true)
-      setError(null)
-      try {
-        const searchResults = await apiClient.get<any[]>(`/market/crypto/search?q=${encodeURIComponent(q)}`, { token })
-        const symbols = searchResults.map((s) => s.symbol).join(",")
-        if (!symbols) {
-            setCoins([])
-            setLoading(false)
-            return
-        }
-        
-        const quotesData = await apiClient.get<CryptoRow[]>(`/market/crypto/quote?symbols=${encodeURIComponent(symbols)}`, { token })
-        setCoins(quotesData)
-      } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") return
-        setError(language === "mk" ? "Неуспешно пребарување." : "Failed to search crypto.")
-      } finally {
-        setLoading(false)
-      }
-  }, [language, token])
-
   useEffect(() => {
     if (query.trim()) {
-        const debounce = setTimeout(() => searchQuotes(query), 500)
-        return () => clearTimeout(debounce)
-    } else {
-        setIsSearching(false)
-        setStart(0)
-        fetchList(0, true)
+      const debounce = setTimeout(async () => {
+        setSearchLoading(true)
+        setError(null)
+        try {
+          const data = await apiClient.get<CryptoSearchResult[]>(`/market/crypto/search?q=${encodeURIComponent(query)}`, { token })
+          if (data.length > 0) {
+            setSearchResults(data)
+          } else {
+            const q = query.trim().toLowerCase()
+            const fallback = coins
+              .filter((coin) => coin.symbol.toLowerCase().includes(q) || coin.name.toLowerCase().includes(q))
+              .slice(0, 10)
+              .map((coin) => ({
+                symbol: coin.symbol,
+                name: coin.name,
+                exchange: coin.exchange,
+                quoteType: "CRYPTOCURRENCY",
+              }))
+            setSearchResults(fallback)
+          }
+        } catch {
+          const q = query.trim().toLowerCase()
+          const fallback = coins
+            .filter((coin) => coin.symbol.toLowerCase().includes(q) || coin.name.toLowerCase().includes(q))
+            .slice(0, 10)
+            .map((coin) => ({
+              symbol: coin.symbol,
+              name: coin.name,
+              exchange: coin.exchange,
+              quoteType: "CRYPTOCURRENCY",
+            }))
+          setSearchResults(fallback)
+        } finally {
+          setSearchLoading(false)
+        }
+      }, 400)
+      return () => clearTimeout(debounce)
     }
-  }, [query, fetchList, searchQuotes])
+
+    setSearchResults(null)
+    setStart(0)
+    fetchList(0, true)
+  }, [query, fetchList, token])
+
+  const handleCoinSelect = useCallback((coin: CryptoRow) => {
+    setSelectedCoin(coin)
+    setSearchResults(null)
+    setQuery("")
+  }, [])
+
+  const handleSelectCoinSymbol = useCallback(
+    async (symbol: string) => {
+      const normalized = symbol.toUpperCase()
+      const existing = coins.find((coin) => coin.symbol.toUpperCase() === normalized)
+      if (existing) {
+        handleCoinSelect(existing)
+        return
+      }
+
+      try {
+        const quotesData = await apiClient.get<CryptoRow[]>(`/market/crypto/quote?symbols=${encodeURIComponent(symbol)}`, { token })
+        const selected = quotesData.find((q) => q.symbol.toUpperCase() === normalized) ?? quotesData[0]
+        if (selected) handleCoinSelect(selected)
+      } catch {
+        // Ignore selection failures and keep the current list visible.
+      }
+    },
+    [coins, handleCoinSelect, token],
+  )
 
   const sortedCoins = useMemo(() => {
     let arr = [...coins]
@@ -271,10 +311,28 @@ export const CryptoPage = () => {
       </div>
 
       <div className="market-controls">
-        <div className="market-search-wrap">
+        <div className="market-search-wrap" style={{ position: "relative" }}>
           <Search size={15} className="market-search-icon" />
           <input className="input market-search" placeholder={language === "mk" ? "Барај по симбол..." : "Search by symbol..."} value={query} onChange={(e) => setQuery(e.target.value)} />
-          {query && <button className="market-clear-btn" onClick={() => setQuery("")}><X size={13} /></button>}
+          {query && <button className="market-clear-btn" onClick={() => { setQuery(""); setSearchResults(null) }}><X size={13} /></button>}
+
+          {searchResults !== null && query.trim() && (
+            <div className="market-search-dropdown">
+              {searchLoading ? (
+                <div style={{ padding: "0.75rem", textAlign: "center", color: "var(--muted)" }}>Searching&hellip;</div>
+              ) : searchResults.length === 0 ? (
+                <div style={{ padding: "0.75rem", textAlign: "center", color: "var(--muted)" }}>No results</div>
+              ) : (
+                searchResults.map((result) => (
+                  <button type="button" key={`${result.symbol}-${result.exchange}`} className="market-search-result" onClick={() => void handleSelectCoinSymbol(result.symbol)}>
+                    <strong>{result.symbol}</strong>
+                    <span>{result.name}</span>
+                    <span className="eyebrow">{result.exchange}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -319,7 +377,7 @@ export const CryptoPage = () => {
                   {sortedCoins.map((coin, idx) => {
                     const isUp = (coin.change_percent ?? 0) >= 0
                     return (
-                      <tr key={`${coin.symbol}-${idx}`} className="market-row" onClick={() => setSelectedCoin(coin)}>
+                      <tr key={`${coin.symbol}-${idx}`} className="market-row" onClick={() => void handleSelectCoinSymbol(coin.symbol)}>
                         <td>
                           <div className="coin-name-cell">
                             {coin.image ? <img src={coin.image} alt={coin.name} className="coin-icon" width={24} height={24} /> : <div className="coin-icon" style={{width: 24, height: 24, background: 'var(--border)', borderRadius: '50%'}}></div>}
@@ -342,14 +400,13 @@ export const CryptoPage = () => {
                 </tbody>
               </table>
             </div>
-            {!isSearching && hasMore && (
+            {hasMore && !query.trim() && (
               <div className="market-load-more">
                 <button className="primary-button" onClick={handleLoadMore} disabled={loadingMore}>
                   {loadingMore ? (language === "mk" ? "Се вчитува..." : "Loading…") : (language === "mk" ? "Вчитај повеќе" : `Load ${PAGE_SIZE} more`)}
                 </button>
               </div>
             )}
-            {isSearching && <p className="market-count">{coins.length} result{coins.length !== 1 ? "s" : ""} for “{query}”</p>}
           </>
         )}
       </div>

@@ -71,6 +71,11 @@ const CHART_RANGES: { value: ChartRange; label: string }[] = [
 const PAGE_SIZE = 30
 
 // Helpers
+function pickDefined<T>(preferred: T | null | undefined, fallback: T | null | undefined): T | null {
+  if (preferred !== null && preferred !== undefined) return preferred
+  return fallback ?? null
+}
+
 function fmtPrice(n: number | null): string {
   if (n == null) return "\u2014"
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -94,10 +99,48 @@ function fmtVol(n: number | null): string {
 
 // Stock Chart Modal
 const StockChartModal = ({ stock, onClose }: { stock: StockRow; onClose: () => void }) => {
+  const [displayStock, setDisplayStock] = useState<StockRow>(stock)
   const [chartRange, setChartRange] = useState<ChartRange>("1mo")
   const [chartData, setChartData] = useState<ChartPoint[]>([])
   const [chartLoading, setChartLoading] = useState(true)
   const { token } = useAuth()
+
+  useEffect(() => {
+    setDisplayStock(stock)
+  }, [stock])
+
+  useEffect(() => {
+    let active = true
+    apiClient
+      .get<StockRow[]>(`/market/stocks/quote?symbols=${encodeURIComponent(stock.symbol)}`, { token })
+      .then((quotes) => {
+        if (!active || quotes.length === 0) return
+
+        const exact = quotes.find((q) => q.symbol.toUpperCase() === stock.symbol.toUpperCase()) ?? quotes[0]
+        setDisplayStock((prev) => ({
+          ...prev,
+          ...exact,
+          name: exact.name || prev.name,
+          exchange: exact.exchange || prev.exchange,
+          price: pickDefined(exact.price, prev.price),
+          change: pickDefined(exact.change, prev.change),
+          change_percent: pickDefined(exact.change_percent, prev.change_percent),
+          market_cap: pickDefined(exact.market_cap, prev.market_cap),
+          volume: pickDefined(exact.volume, prev.volume),
+          day_high: pickDefined(exact.day_high, prev.day_high),
+          day_low: pickDefined(exact.day_low, prev.day_low),
+          fifty_two_week_low: pickDefined(exact.fifty_two_week_low, prev.fifty_two_week_low),
+          fifty_two_week_high: pickDefined(exact.fifty_two_week_high, prev.fifty_two_week_high),
+          avg_volume: pickDefined(exact.avg_volume, prev.avg_volume),
+        }))
+      })
+      .catch(() => {
+        // Keep existing modal data when quote refresh fails.
+      })
+    return () => {
+      active = false
+    }
+  }, [stock.symbol, token])
 
   useEffect(() => {
     let active = true
@@ -109,7 +152,7 @@ const StockChartModal = ({ stock, onClose }: { stock: StockRow; onClose: () => v
     return () => { active = false }
   }, [stock.symbol, chartRange, token])
 
-  const isUp = (stock.change_percent ?? 0) >= 0
+  const isUp = (displayStock.change_percent ?? 0) >= 0
   const color = isUp ? "#22c55e" : "#fb7185"
   const formatDate = (ts: number) => new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 
@@ -124,18 +167,18 @@ const StockChartModal = ({ stock, onClose }: { stock: StockRow; onClose: () => v
         <div className="modal__header">
           <div className="coin-chart-modal__title">
             <div>
-              <h2>{stock.symbol}</h2>
-              <span className="eyebrow">{stock.name} &middot; {stock.exchange}</span>
+              <h2>{displayStock.symbol}</h2>
+              <span className="eyebrow">{displayStock.name} &middot; {displayStock.exchange}</span>
             </div>
           </div>
           <button className="modal__close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="coin-chart-modal__meta">
-          <span className="coin-chart-modal__price">{fmtPrice(stock.price)}</span>
-          {stock.change_percent != null && (
+          <span className="coin-chart-modal__price">{fmtPrice(displayStock.price)}</span>
+          {displayStock.change_percent != null && (
             <span className={`market-badge ${isUp ? "market-badge--up" : "market-badge--down"}`}>
               {isUp ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-              {Math.abs(stock.change_percent).toFixed(2)}%
+              {Math.abs(displayStock.change_percent).toFixed(2)}%
             </span>
           )}
         </div>
@@ -175,10 +218,10 @@ const StockChartModal = ({ stock, onClose }: { stock: StockRow; onClose: () => v
         </div>
 
         <div className="coin-chart-modal__stats">
-          <div className="coin-stat"><span>Market Cap</span><strong>{fmtLarge(stock.market_cap)}</strong></div>
-          <div className="coin-stat"><span>Volume</span><strong>{fmtVol(stock.volume)}</strong></div>
-          <div className="coin-stat"><span>Day Range</span><strong>{fmtPrice(stock.day_low)} - {fmtPrice(stock.day_high)}</strong></div>
-          <div className="coin-stat"><span>52w Low</span><strong>{fmtPrice(stock.fifty_two_week_low)}</strong></div>
+          <div className="coin-stat"><span>Market Cap</span><strong>{fmtLarge(displayStock.market_cap)}</strong></div>
+          <div className="coin-stat"><span>Volume</span><strong>{fmtVol(displayStock.volume)}</strong></div>
+          <div className="coin-stat"><span>Day Range</span><strong>{fmtPrice(displayStock.day_low)} - {fmtPrice(displayStock.day_high)}</strong></div>
+          <div className="coin-stat"><span>52w Low</span><strong>{fmtPrice(displayStock.fifty_two_week_low)}</strong></div>
         </div>
       </div>
     </div>,
@@ -275,15 +318,53 @@ export const StocksPage = () => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, token])
 
-  // When user clicks a search result, fetch the live quote and open the chart
-  const handleSearchClick = async (symbol: string) => {
-    try {
-      const quotes = await apiClient.get<StockRow[]>(`/market/stocks/quote?symbols=${symbol}`, { token })
-      if (quotes.length) setSelectedStock(quotes[0])
-    } catch { /* ignore */ }
+  const handleStockSelect = useCallback((stock: StockRow) => {
+    setSelectedStock(stock)
     setSearchResults(null)
     setQuery("")
-  }
+  }, [])
+
+  const buildFallbackStock = useCallback((result: SearchResult): StockRow => ({
+    symbol: result.symbol,
+    name: result.name,
+    exchange: result.exchange,
+    price: null,
+    change: null,
+    change_percent: null,
+    market_cap: null,
+    volume: null,
+    day_high: null,
+    day_low: null,
+    fifty_two_week_low: null,
+    fifty_two_week_high: null,
+    avg_volume: null,
+  }), [])
+
+  // Single selection path used by both table rows and search results.
+  const handleSelectStockSymbol = useCallback(
+    async (symbol: string, searchItem?: SearchResult) => {
+      const normalized = symbol.toUpperCase()
+      const existing = stocks.find((s) => s.symbol.toUpperCase() === normalized)
+      if (existing) {
+        handleStockSelect(existing)
+        return
+      }
+
+      try {
+        const quotes = await apiClient.get<StockRow[]>(`/market/stocks/quote?symbols=${encodeURIComponent(symbol)}`, { token })
+        const selected = quotes.find((q) => q.symbol.toUpperCase() === normalized) ?? quotes[0]
+        if (selected) {
+          handleStockSelect(selected)
+          return
+        }
+      } catch {
+        // Ignore selection failures and keep current state.
+      }
+
+      if (searchItem) handleStockSelect(buildFallbackStock(searchItem))
+    },
+    [buildFallbackStock, handleStockSelect, stocks, token],
+  )
 
   const hasMore = stocks.length < total
 
@@ -314,7 +395,13 @@ export const StocksPage = () => {
                 <div style={{ padding: "0.75rem", textAlign: "center", color: "var(--muted)" }}>No results</div>
               ) : (
                 searchResults.map((r) => (
-                  <button key={r.symbol} className="market-search-result" onClick={() => handleSearchClick(r.symbol)}>
+                  <button
+                    type="button"
+                    key={`${r.symbol}-${r.exchange}`}
+                    className="market-search-result"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => void handleSelectStockSymbol(r.symbol, r)}
+                  >
                     <strong>{r.symbol}</strong>
                     <span>{r.name}</span>
                     <span className="eyebrow">{r.exchange}</span>
@@ -366,7 +453,7 @@ export const StocksPage = () => {
                   {stocks.map((s) => {
                     const isUp = (s.change_percent ?? 0) >= 0
                     return (
-                      <tr key={s.symbol} className="market-row" onClick={() => setSelectedStock(s)}>
+                      <tr key={s.symbol} className="market-row" onClick={() => void handleSelectStockSymbol(s.symbol)}>
                         <td><strong className="stock-symbol">{s.symbol}</strong></td>
                         <td className="stock-name-cell">{s.name}</td>
                         <td className="amount-cell">{fmtPrice(s.price)}</td>

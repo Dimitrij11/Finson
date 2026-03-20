@@ -90,6 +90,82 @@ def _parse_quotes(quotes: list[dict[str, Any]]) -> list[MarketQuote]:
     return parsed
 
 
+def _first_number(*values: Any) -> float | None:
+    for value in values:
+        parsed = _extract_raw_number(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _quote_needs_enrichment(quote: MarketQuote) -> bool:
+    return any(
+        value is None
+        for value in (
+            quote.market_cap,
+            quote.volume,
+            quote.day_high,
+            quote.day_low,
+            quote.fifty_two_week_high,
+            quote.fifty_two_week_low,
+        )
+    )
+
+
+async def _fetch_stock_summary(symbol: str) -> dict[str, Any]:
+    url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{symbol}"
+    params = {"modules": "price,summaryDetail,defaultKeyStatistics"}
+    cache_key = f"stocks:summary:{symbol.upper()}"
+    data = await _fetch_json_with_cache(
+        cache_key,
+        url=url,
+        params=params,
+        fallback={"quoteSummary": {"result": []}},
+    )
+    return (data.get("quoteSummary", {}).get("result") or [{}])[0]
+
+
+def _merge_quote_with_summary(quote: MarketQuote, summary: dict[str, Any]) -> MarketQuote:
+    price = summary.get("price") or {}
+    detail = summary.get("summaryDetail") or {}
+    stats = summary.get("defaultKeyStatistics") or {}
+
+    return MarketQuote(
+        symbol=quote.symbol,
+        name=quote.name or str(price.get("shortName")
+                               or price.get("longName") or ""),
+        price=quote.price,
+        change=quote.change,
+        change_percent=quote.change_percent,
+        market_cap=quote.market_cap
+        if quote.market_cap is not None
+        else _first_number(price.get("marketCap"), detail.get("marketCap"), stats.get("marketCap")),
+        volume=quote.volume
+        if quote.volume is not None
+        else _first_number(
+            price.get("regularMarketVolume"),
+            detail.get("volume"),
+            detail.get("averageVolume"),
+            detail.get("averageVolume10days"),
+        ),
+        day_high=quote.day_high
+        if quote.day_high is not None
+        else _first_number(price.get("regularMarketDayHigh"), detail.get("dayHigh")),
+        day_low=quote.day_low
+        if quote.day_low is not None
+        else _first_number(price.get("regularMarketDayLow"), detail.get("dayLow")),
+        fifty_two_week_high=quote.fifty_two_week_high
+        if quote.fifty_two_week_high is not None
+        else _first_number(price.get("fiftyTwoWeekHigh"), detail.get("fiftyTwoWeekHigh")),
+        fifty_two_week_low=quote.fifty_two_week_low
+        if quote.fifty_two_week_low is not None
+        else _first_number(price.get("fiftyTwoWeekLow"), detail.get("fiftyTwoWeekLow")),
+        exchange=quote.exchange
+        or str(price.get("exchangeName") or price.get("fullExchangeName") or ""),
+        image=quote.image,
+    )
+
+
 @router.get("/crypto/list", response_model=MarketListResponse)
 async def get_crypto_list(count: int = 50, start: int = 0):
     url = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved"
@@ -162,11 +238,30 @@ async def get_stocks_list(
 
 @router.get("/crypto/search", response_model=list[MarketSearchItem])
 async def get_crypto_search(q: str):
+    normalized_query = q.strip()
+    if not normalized_query:
+        return []
+
     url = f"https://query2.finance.yahoo.com/v1/finance/search"
-    params = {"q": q, "quotesCount": 10, "newsCount": 0}
-    cache_key = f"crypto:search:{q.strip().lower()}"
+    params = {"q": normalized_query, "quotesCount": 10, "newsCount": 0}
+    cache_key = f"crypto:search:{normalized_query.lower()}"
     data = await _fetch_json_with_cache(cache_key, url=url, params=params, fallback={"quotes": []})
     quotes = data.get("quotes") or []
+
+    def _is_crypto_quote(item: dict[str, Any]) -> bool:
+        quote_type = str(item.get("quoteType") or "").upper()
+        symbol = str(item.get("symbol") or "").upper()
+        exchange = str(item.get("exchange")
+                       or item.get("exchDisp") or "").upper()
+
+        if quote_type in {"CRYPTOCURRENCY", "CRYPTO", "COIN"}:
+            return True
+        if symbol.endswith("-USD"):
+            return True
+        if exchange in {"CCC", "COIN", "CRYPTO"}:
+            return True
+        return False
+
     return [
         MarketSearchItem(
             symbol=str(item.get("symbol") or ""),
@@ -175,7 +270,7 @@ async def get_crypto_search(q: str):
             quoteType=str(item.get("quoteType") or ""),
         )
         for item in quotes
-        if item.get("quoteType") in {"CRYPTOCURRENCY"}
+        if _is_crypto_quote(item)
     ]
 
 
@@ -213,7 +308,19 @@ async def get_stocks_quote(symbols: str):
     params = {"symbols": symbols}
     cache_key = f"stocks:quote:{symbols}"
     data = await _fetch_json_with_cache(cache_key, url=url, params=params, fallback={"quoteResponse": {"result": []}})
-    return _parse_quotes(data.get("quoteResponse", {}).get("result") or [])
+    parsed_quotes = _parse_quotes(
+        data.get("quoteResponse", {}).get("result") or [])
+
+    enriched_quotes: list[MarketQuote] = []
+    for quote in parsed_quotes:
+        if not quote.symbol or not _quote_needs_enrichment(quote):
+            enriched_quotes.append(quote)
+            continue
+
+        summary = await _fetch_stock_summary(quote.symbol)
+        enriched_quotes.append(_merge_quote_with_summary(quote, summary))
+
+    return enriched_quotes
 
 
 @router.get("/stocks/chart/{symbol}", response_model=list[MarketChartPoint])
