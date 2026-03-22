@@ -9,6 +9,57 @@ from app.models import User
 from app.schemas.user import AdminUserUpdate, UserCreate, UserUpdate
 
 
+TIER_RANK: dict[str, int] = {
+    "FREE": 1,
+    "PRO": 2,
+    "ELITE": 3,
+}
+
+TIER_LIMITS: dict[str, dict[str, int | None]] = {
+    "FREE": {
+        "max_budgets": 3,
+        "max_savings_goals": 2,
+        "max_advice_requests_per_day": 5,
+        "max_transaction_page_limit": 50,
+        "max_transaction_history_days": 90,
+    },
+    "PRO": {
+        "max_budgets": 20,
+        "max_savings_goals": 15,
+        "max_advice_requests_per_day": 50,
+        "max_transaction_page_limit": 200,
+        "max_transaction_history_days": 730,
+    },
+    "ELITE": {
+        "max_budgets": None,
+        "max_savings_goals": None,
+        "max_advice_requests_per_day": 300,
+        "max_transaction_page_limit": 500,
+        "max_transaction_history_days": None,
+    },
+}
+
+
+def normalize_subscription_tier(tier: str | None) -> str:
+    """Normalize stored tier value and keep legacy PREMIUM as ELITE."""
+    normalized = (tier or "FREE").upper()
+    if normalized == "PREMIUM":
+        return "ELITE"
+    return normalized if normalized in TIER_RANK else "FREE"
+
+
+def user_has_min_tier(user: User, min_tier: str) -> bool:
+    user_rank = TIER_RANK.get(
+        normalize_subscription_tier(user.subscription_tier), 1)
+    required_rank = TIER_RANK.get(normalize_subscription_tier(min_tier), 1)
+    return user_rank >= required_rank
+
+
+def get_tier_limits_for_user(user: User) -> dict[str, int | None]:
+    tier = normalize_subscription_tier(user.subscription_tier)
+    return TIER_LIMITS[tier]
+
+
 def get(db: Session, user_id: int) -> User | None:
     return db.get(User, user_id)
 

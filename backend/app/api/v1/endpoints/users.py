@@ -154,7 +154,7 @@ def change_currency(
     *,
     db: Session = Depends(deps.get_db),
     request: CurrencyChangeRequest,
-    current_user: User = Depends(deps.get_current_full_access_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     """
     Change user's currency and optionally convert all transaction and budget values.
