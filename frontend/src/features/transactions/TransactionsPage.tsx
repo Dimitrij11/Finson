@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import type { FormEvent } from "react"
 import { Trash2, Pencil, X, ChevronDown } from "lucide-react"
 import { createPortal } from "react-dom"
@@ -8,6 +8,8 @@ import { useSearch } from "../../context/SearchContext"
 import { useLanguage } from "../../i18n"
 import { useAuth } from "../../hooks/useAuth"
 import type { Transaction } from "../../api/types"
+import { ExportActionMenu } from "../../components/ui/ExportActionMenu"
+import { buildDateRangeFromRows, sumMinor, toMinorUnits, type ExportColumn } from "../../utils/exportManager"
 
 // Format date based on language
 const formatDate = (dateString: string, lang: string): string => {
@@ -191,6 +193,7 @@ export const TransactionsPage = () => {
   // Custom dropdown state for edit form
   const [showEditTypeDropdown, setShowEditTypeDropdown] = useState(false)
   const editTypeDropdownRef = useRef<HTMLDivElement>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -209,6 +212,109 @@ export const TransactionsPage = () => {
   const TYPE_COLORS: Record<string, string> = {
     income: "#22c55e",
     expense: "#ef4444",
+  }
+
+  useEffect(() => {
+    if (!filteredData) return
+    const visibleIds = new Set(filteredData.map((tx) => tx.id))
+    setSelectedIds((prev) => {
+      const next = new Set<number>()
+      prev.forEach((id) => {
+        if (visibleIds.has(id)) next.add(id)
+      })
+      return next
+    })
+  }, [filteredData])
+
+  const columns: ExportColumn<Transaction>[] = [
+    { id: "category", label: "Category", kind: "text", value: (tx) => toTitleCase(tx.category) },
+    { id: "type", label: "Type", kind: "text", value: (tx) => tx.transaction_type },
+    { id: "amount", label: "Amount", kind: "currency", value: (tx) => Number(toMinorUnits(tx.amount)) / 10000 },
+    { id: "currency", label: "Currency", kind: "text", value: (tx) => tx.currency },
+    { id: "date", label: "Date", kind: "date", value: (tx) => tx.occurred_at },
+    { id: "note", label: "Note", kind: "text", value: (tx) => tx.note ?? "" },
+  ]
+
+  const selectedRows = useMemo(() => {
+    if (!filteredData) return []
+    return filteredData.filter((tx) => selectedIds.has(tx.id))
+  }, [filteredData, selectedIds])
+
+  const totalIncomeMinor = useMemo(
+    () => sumMinor((filteredData ?? []).filter((tx) => tx.transaction_type === "income").map((tx) => tx.amount)),
+    [filteredData],
+  )
+
+  const totalExpenseMinor = useMemo(
+    () => sumMinor((filteredData ?? []).filter((tx) => tx.transaction_type === "expense").map((tx) => tx.amount)),
+    [filteredData],
+  )
+
+  const dateRangeLabel = useMemo(
+    () => buildDateRangeFromRows((filteredData ?? []).map((tx) => tx.occurred_at)),
+    [filteredData],
+  )
+
+  const exportConfig = useMemo(
+    () => ({
+      type: "Transactions",
+      rows: filteredData ?? [],
+      columns,
+      dateRangeLabel,
+      locale: language === "mk" ? "mk-MK" : "en-US",
+      filters: {
+        date: transactionsPeriod,
+        search: searchTerm || undefined,
+      },
+      summary: {
+        currency: userCurrency,
+        totalIncomeMinor,
+        totalExpenseMinor,
+      },
+    }),
+    [filteredData, columns, dateRangeLabel, language, transactionsPeriod, searchTerm, userCurrency, totalIncomeMinor, totalExpenseMinor],
+  )
+
+  const exportSelectedConfig = useMemo(
+    () => ({
+      ...exportConfig,
+      rows: selectedRows,
+      dateRangeLabel: buildDateRangeFromRows(selectedRows.map((tx) => tx.occurred_at)),
+      summary: {
+        currency: userCurrency,
+        totalIncomeMinor: sumMinor(selectedRows.filter((tx) => tx.transaction_type === "income").map((tx) => tx.amount)),
+        totalExpenseMinor: sumMinor(selectedRows.filter((tx) => tx.transaction_type === "expense").map((tx) => tx.amount)),
+      },
+    }),
+    [exportConfig, selectedRows, userCurrency],
+  )
+
+  const allVisibleSelected = Boolean(filteredData?.length) && (filteredData?.every((tx) => selectedIds.has(tx.id)) ?? false)
+
+  const toggleSelectAll = () => {
+    if (!filteredData) return
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      const everySelected = filteredData.every((tx) => next.has(tx.id))
+      if (everySelected) {
+        filteredData.forEach((tx) => next.delete(tx.id))
+      } else {
+        filteredData.forEach((tx) => next.add(tx.id))
+      }
+      return next
+    })
+  }
+
+  const toggleSelection = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -303,6 +409,13 @@ export const TransactionsPage = () => {
             {t("history")}
             {searchTerm && <span className="search-indicator"> — {t("searchingFor")}: "{searchTerm}"</span>}
           </h3>
+          <div className="panel__toolbar">
+            <ExportActionMenu
+              config={exportConfig}
+              hasSelected={selectedRows.length > 0}
+              selectedConfig={exportSelectedConfig}
+            />
+          </div>
           <div className="period-selector">
   <button
     className={`period-btn ${transactionsPeriod === "day" ? "period-btn--active" : ""}`}
@@ -342,6 +455,15 @@ export const TransactionsPage = () => {
             <div className="table-responsive"><div className="table-responsive"><table className="table">
               <thead>
                 <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      className="row-selector"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Select all filtered transactions"
+                    />
+                  </th>
                   <th>{t("category")}</th>
                   <th>{t("type")}</th>
                   <th className="amount-header">{t("amount")}</th>
@@ -353,6 +475,15 @@ export const TransactionsPage = () => {
               <tbody>
                 {filteredData.map((tx) => (
                   <tr key={tx.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        className="row-selector"
+                        checked={selectedIds.has(tx.id)}
+                        onChange={() => toggleSelection(tx.id)}
+                        aria-label={`Select transaction ${tx.id}`}
+                      />
+                    </td>
                     <td>{toTitleCase(tx.category)}</td>
                     <td>
                       <span className={tx.transaction_type === "income" ? "badge badge--income" : "badge badge--expense"}>

@@ -4127,3 +4127,291 @@ body.modal-open {
   font-weight: 600;
   border-radius: 10px;
 }
+
+.panel__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.budget-toolbar {
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.budget-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 0.5rem;
+  width: min(100%, 760px);
+}
+
+.budget-filters .input {
+  min-height: 40px;
+}
+
+.export-menu {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.export-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.export-menu__trigger:hover:not(:disabled) {
+  border-color: rgba(255, 182, 119, 0.5);
+}
+
+.export-menu__trigger:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.export-menu__panel {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  z-index: 70;
+  width: min(92vw, 420px);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-strong);
+  box-shadow: 0 24px 42px rgba(0, 0, 0, 0.36);
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.export-menu__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.export-menu__label {
+  margin: 0;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.export-menu__scope-toggle,
+.export-menu__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.export-menu__scope-btn,
+.export-menu__actions button,
+.export-menu__hint-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.export-menu__scope-btn:hover:not(:disabled),
+.export-menu__actions button:hover:not(:disabled),
+.export-menu__hint-btn:hover {
+  background: color-mix(in srgb, var(--surface) 70%, var(--accent) 30%);
+  border-color: color-mix(in srgb, var(--border) 35%, var(--accent) 65%);
+}
+
+.export-menu__scope-btn--active {
+  border-color: rgba(255, 182, 119, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(255, 182, 119, 0.25);
+}
+
+.export-menu__scope-btn:disabled,
+.export-menu__actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.export-menu__hint {
+  margin: 0;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.55rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.export-progress {
+  width: min(92vw, 420px);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.export-progress__track {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 50%, var(--border) 50%);
+}
+
+.export-progress__bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+  transition: width 0.24s ease;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.row-selector {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+@media (max-width: 980px) {
+  .budget-filters {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .export-menu__scope-toggle,
+  .export-menu__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  :root {
+    --text: #111111;
+    --muted: #3f3f46;
+    --border: #d4d4d8;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+    font-size: 11pt;
+    counter-reset: finson-page;
+  }
+
+  .sidebar,
+  .sidebar-overlay,
+  .topbar,
+  .export-menu,
+  .export-progress,
+  .primary-button,
+  .secondary-button,
+  .action-buttons,
+  .delete-button,
+  .edit-button,
+  .custom-dropdown,
+  .panel__toolbar,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  .app-shell,
+  .app-main,
+  .app-content,
+  .dashboard__split {
+    display: block !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .panel {
+    break-inside: avoid;
+    margin: 0 0 10mm !important;
+    border: 1px solid #d4d4d8 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    border-radius: 0 !important;
+  }
+
+  .table {
+    min-width: 100% !important;
+    font-size: 10pt;
+  }
+
+  .table thead {
+    display: table-header-group;
+  }
+
+  .table tbody tr {
+    break-inside: avoid;
+  }
+
+  .table th,
+  .table td {
+    color: #111111 !important;
+    border-bottom: 1px solid #e4e4e7;
+    padding: 7px 8px;
+  }
+
+  .badge {
+    border: 1px solid #d4d4d8;
+    color: #111111 !important;
+    background: #fafafa !important;
+  }
+
+  .app-content::after {
+    counter-increment: finson-page;
+    content: "Finson Print View - Page " counter(finson-page);
+    position: fixed;
+    bottom: 6mm;
+    right: 10mm;
+    font-size: 9pt;
+    color: #52525b;
+  }
+}
