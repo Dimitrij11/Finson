@@ -173,6 +173,7 @@ input.market-search {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  font-weight: 550;
 }
 
 .market-chip {

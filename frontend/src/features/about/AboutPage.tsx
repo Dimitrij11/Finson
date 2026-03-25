@@ -72,10 +72,10 @@ export const AboutPage = () => {
               <Github size={20} />
               GitHub Repository
             </a>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)" }}>
+            {/* <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--text)" }}>
               <Heart size={20} color="var(--negative)" />
               {t("madeWithLove")}
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
