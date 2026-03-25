@@ -106,7 +106,7 @@ const InvestmentCalculator = () => {
   return (
     <div className="panel investment-calculator">
       <h3 className="panel__title">
-        📈 {t("investmentCalculator")}
+         {t("investmentCalculator")}
       </h3>
       <p className="panel__subtitle">
         {t("calculateGrowth")}
@@ -558,7 +558,7 @@ export const AnalyticsPage = () => {
           <div className="panel__header">
             <div>
               <h3 className="panel__title">
-                🥧 {t("spendingByCategory")}
+                 {t("spendingByCategory")}
               </h3>
               <p className="panel__subtitle">
                 {t("expenseDistribution")}
@@ -624,7 +624,7 @@ export const AnalyticsPage = () => {
         {/* Monthly Income vs Expenses Bar Chart */}
         <div className="panel">
           <h3 className="panel__title">
-            📊 {t("monthlyOverview")}
+             {t("monthlyOverview")}
           </h3>
           <p className="panel__subtitle">
             {t("incomeVsExpenses")}
@@ -668,7 +668,7 @@ export const AnalyticsPage = () => {
         <div className="panel__header">
           <div>
             <h3 className="panel__title">
-              📈 {t("savingsTrend")}
+               {t("savingsTrend")}
             </h3>
             <p className="panel__subtitle">
               {t("balanceOverTime")}
